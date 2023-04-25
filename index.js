@@ -4,7 +4,9 @@ const cors = require("cors");
 require("dotenv").config();
 const cloudinary = require("./config/cloudinary");
 const uploader = require("./config/config");
-
+const cloudinaryModel = require("./models/cloudinary");
+const { default: cloudinaryRouter } = require("./routes/cloudinary");
+const Modelss = require("./models/cloudinary");
 const PORT = process.env.PORT;
 const MONGO_CONNECTION_STRING = process.env.MONGO_CONNECTION_STRING;
 
@@ -14,17 +16,50 @@ app.use(express.json());
 
 app.get("/", (request, response) => {
   response.json({
-    data: ["Samurai budaa"],
+    data: [],
   });
 });
+// app.use("/cloud", cloudinaryRouter);
+const cloudinaryImageUploadMethod = async (file) => {
+  return new Promise((resolve) => {
+    cloudinary.uploader.upload(file, (err, res) => {
+      if (err) return res.status(500).send("upload image error");
+      resolve({
+        res: res.secure_url,
+      });
+    });
+  });
+};
+app.post("/upload", uploader.array("img", 3), async (req, res) => {
+  const urls = [];
+  const files = req.files;
+  for (const file of files) {
+    const { path } = file;
+    const newPath = await cloudinaryImageUploadMethod(path);
+    urls.push(newPath);
+  }
+  const product = new cloudinaryModel({
+    product_name: "gg",
+    image: urls,
+  });
+  res.send(product);
+});
+// app.post("/upload", uploader.array("file", 2), async (req, res) => {
+//   const upload = await cloudinary.v2.uploader.upload(req.file.path);
+//   console.log(upload.secure_url);
+//   // const body = request.body;
+//   // const result = await cloudinaryModel.create(body);
 
-app.post("/upload", uploader.single("file"), async (req, res) => {
-  const upload = await cloudinary.v2.uploader.upload(req.file.path);
-  return res.json({
-    success: true,
-    file: upload.secure_url,
-  });
-});
+//   const result = await Modelss.create({
+//     product_name: "gg",
+//     image: upload.secure_url,
+//   });
+//   res.send(result);
+//   // return res.json({
+//   //   success: true,
+//   //   file: upload.secure_url,
+//   // });
+// });
 
 app.listen(PORT, () => {
   mongoose
