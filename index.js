@@ -40,7 +40,7 @@ app.post("/upload", uploader.array("img", 3), async (req, res) => {
   }
   const product = new cloudinaryModel({
     product_name: "gg",
-    image: urls,
+    image: urls.map((url) => url.res),
   });
   res.send(product);
 });
