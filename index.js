@@ -4,46 +4,73 @@ const cors = require("cors");
 require("dotenv").config();
 const cloudinary = require("./config/cloudinary");
 const uploader = require("./config/config");
-const cloudinaryModel = require("./models/cloudinary");
-const { default: cloudinaryRouter } = require("./routes/cloudinary");
-const Modelss = require("./models/cloudinary");
+const cloudinaryModelss = require("./models/cloudinary");
+// const cloudinaryModel = require("./models/cloudinary");
+const bodyParser = require("body-parser");
+const fs = require("fs");
+// const cloudinaryRouter = require("./routes/cloudinary");
+
 const PORT = process.env.PORT;
 const MONGO_CONNECTION_STRING = process.env.MONGO_CONNECTION_STRING;
 
 const app = express();
+
 app.use(cors());
 app.use(express.json());
-
-app.get("/", (request, response) => {
-  response.json({
-    data: [],
-  });
-});
+app.use(
+  bodyParser.urlencoded({
+    extended: false,
+  })
+);
+app.use(bodyParser.json());
 // app.use("/cloud", cloudinaryRouter);
-const cloudinaryImageUploadMethod = async (file) => {
-  return new Promise((resolve) => {
-    cloudinary.uploader.upload(file, (err, res) => {
-      if (err) return res.status(500).send("upload image error");
-      resolve({
-        res: res.secure_url,
-      });
-    });
-  });
-};
-app.post("/upload", uploader.array("img", 3), async (req, res) => {
-  const urls = [];
-  const files = req.files;
-  for (const file of files) {
-    const { path } = file;
-    const newPath = await cloudinaryImageUploadMethod(path);
-    urls.push(newPath);
-  }
-  const product = new cloudinaryModel({
-    product_name: "gg",
-    image: urls.map((url) => url.res),
-  });
-  res.send(product);
+app.get("/", (req, res) => {
+  res.send("Cloudinary Router");
 });
+
+app.post("/upload-images", uploader.array("image"), async (req, res) => {
+  const uploader = async (path) => await cloudinary.uploads(path, "Images");
+
+  console.log(req.files);
+  if (req.method === "POST") {
+    const urls = [];
+    const files = req.files;
+    for (const file of files) {
+      const { path } = file;
+      const newPath = await uploader(path);
+      urls.push(newPath);
+      fs.unlinkSync(path);
+    }
+    console.log(urls);
+    const result = await cloudinaryModelss.create({
+      product_name: "gg",
+      image: urls,
+    });
+    // res.send(result);
+    return res.json({
+      success: true,
+      data: result,
+    });
+    // console.log(urls.url[0]);
+    // res.status(200).json({
+    //   message: "images uploaded successfully",
+    //   data: urls,
+    // });
+  } else {
+    res.status(405).json({
+      err: `${req.method}method not allowed`,
+    });
+  }
+});
+
+app.listen(PORT, () => {
+  mongoose
+    .connect(MONGO_CONNECTION_STRING)
+    .then(() => console.log("Database connected succesfully"))
+    .catch((error) => console.error(error));
+  console.log(`Express Application is running on http://localhost:${PORT}`);
+});
+
 // app.post("/upload", uploader.array("file", 2), async (req, res) => {
 //   const upload = await cloudinary.v2.uploader.upload(req.file.path);
 //   console.log(upload.secure_url);
@@ -60,11 +87,3 @@ app.post("/upload", uploader.array("img", 3), async (req, res) => {
 //   //   file: upload.secure_url,
 //   // });
 // });
-
-app.listen(PORT, () => {
-  mongoose
-    .connect(MONGO_CONNECTION_STRING)
-    .then(() => console.log("Database connected succesfully"))
-    .catch((error) => console.error(error));
-  console.log(`Express Application is running on http://localhost:${PORT}`);
-});
